@@ -18,6 +18,7 @@ import { DEFAULT_BEDROCK_MODELS, DEFAULT_GEMINI_MODELS } from '../common/agentCo
 import { ModelProviderRegistry } from '../providers/providerRegistry.js';
 import { AgentLoop } from '../runtime/agentLoop.js';
 import { buildAgentSystemPrompt } from '../runtime/agentPromptBuilder.js';
+import { LocalContextGatherer } from '../runtime/localContextGatherer.js';
 import { MultiAgentSwarmCoordinator } from '../runtime/multiAgentCoordinator.js';
 import { ProjectContextEngine } from '../runtime/projectContextEngine.js';
 import { RealToolExecutor } from '../runtime/realToolExecutor.js';
@@ -39,6 +40,7 @@ export class AgentEditorPane extends EditorPane {
 	private readonly _workspaceService: IWorkspaceContextService;
 	private readonly _toolExecutor: RealToolExecutor;
 	private readonly _projectContextEngine: ProjectContextEngine;
+	private readonly _localContextGatherer: LocalContextGatherer;
 
 	constructor(
 		group: IEditorGroup,
@@ -55,6 +57,7 @@ export class AgentEditorPane extends EditorPane {
 			workspaceService
 		});
 		this._projectContextEngine = new ProjectContextEngine(fileService, workspaceService);
+		this._localContextGatherer = new LocalContextGatherer(fileService, workspaceService);
 	}
 
 	protected createEditor(parent: HTMLElement): void {
@@ -171,9 +174,13 @@ export class AgentEditorPane extends EditorPane {
 			const topology = await this._projectContextEngine.buildProjectOverview(this._cts.token);
 			const topologyPrompt = this._projectContextEngine.formatContextPrompt(topology);
 
+			// Analyse locale ultrarapide (<50ms, <100Mo RAM) sur la création vs complétion partielle
+			const localContext = await this._localContextGatherer.gatherContext(text, this._cts.token);
+			const localGathererPrompt = this._localContextGatherer.formatGatheredContext(localContext);
+
 			const systemPrompt = buildAgentSystemPrompt({
 				workspaceRoot: rootPath,
-				projectTopology: topologyPrompt,
+				projectTopology: topologyPrompt + '\n' + localGathererPrompt,
 				mode: this._currentAgent.mode
 			});
 			this._currentAgent.messages.unshift({
