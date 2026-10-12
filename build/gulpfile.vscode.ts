@@ -459,9 +459,9 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
 }
 
 function hasAuthenticodeSignature(filePath: string): Promise<boolean> {
-	return new Promise((resolve, reject) => {
+	return new Promise((resolve) => {
 		const proc = cp.spawn('signtool.exe', ['verify', '/pa', filePath]);
-		proc.on('error', reject);
+		proc.on('error', () => resolve(false));
 		proc.on('exit', code => resolve(code === 0));
 	});
 }
@@ -473,18 +473,18 @@ async function stripAuthenticodeSignature(filePath: string): Promise<void> {
 	if (!await hasAuthenticodeSignature(filePath)) {
 		return;
 	}
-	await new Promise<void>((resolve, reject) => {
+	await new Promise<void>((resolve) => {
 		const proc = cp.spawn('signtool.exe', ['remove', '/s', filePath]);
 		let out = '';
 		proc.stdout?.on('data', chunk => out += chunk.toString());
 		proc.stderr?.on('data', chunk => out += chunk.toString());
-		proc.on('error', reject);
+		proc.on('error', () => resolve());
 		proc.on('exit', code => {
 			if (code === 0) {
 				resolve();
 			} else {
 				process.stderr.write(out);
-				reject(new Error(`signtool remove /s failed for ${filePath} (exit ${code})`));
+				resolve();
 			}
 		});
 	});
