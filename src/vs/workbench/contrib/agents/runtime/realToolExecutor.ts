@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as cp from 'child_process';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
@@ -31,6 +32,11 @@ export class RealToolExecutor {
 		// Normalisation des séparateurs sous Windows / Unix
 		const cleanRelative = trimmed.replace(/^[\\/]+/, '').replace(/\\/g, '/');
 		return URI.joinPath(rootUri, cleanRelative);
+	}
+
+	private _getWorkspaceRootPath(): string {
+		const folders = this._env.workspaceService.getWorkspace().folders;
+		return folders.length > 0 ? folders[0].uri.fsPath : process.cwd();
 	}
 
 	async execute(toolName: string, args: Record<string, unknown>, token: CancellationToken): Promise<string> {
@@ -113,10 +119,70 @@ export class RealToolExecutor {
 				if (!cmd) {
 					throw new Error('Paramètre `command` manquant pour `run_command`.');
 				}
+
 				if (this._env.runCommandHost) {
 					return await this._env.runCommandHost(cmd, token);
 				}
-				return `Commande simulée : ${cmd} (exécuteur de terminal natif non configuré).`;
+
+				// Exécution native PowerShell / Shell direct avec gestion du timeout et annulation
+				return new Promise<string>((resolve, reject) => {
+					const cwd = this._getWorkspaceRootPath();
+					const isWindows = process.platform === 'win32';
+					const shell = isWindows ? 'powershell.exe' : '/bin/bash';
+					const shellArgs = isWindows ? ['-NoProfile', '-NonInteractive', '-Command', cmd] : ['-c', cmd];
+
+					const child = cp.spawn(shell, shellArgs, {
+						cwd,
+						env: { ...process.env }
+					});
+
+					let stdout = '';
+					let stderr = '';
+
+					child.stdout.on('data', (d: Buffer) => {
+						stdout += d.toString('utf8');
+					});
+
+					child.stderr.on('data', (d: Buffer) => {
+						stderr += d.toString('utf8');
+					});
+
+					const registration = token.onCancellationRequested(() => {
+						child.kill();
+						reject(new Error('Commande annulée par l\'utilisateur.'));
+					});
+
+					// Sécurité : timeout de 120 secondes pour les commandes lourdes
+					const timeout = setTimeout(() => {
+						child.kill();
+						reject(new Error('Délai d\'attente dépassé (120 secondes).'));
+					}, 120_000);
+
+					child.on('close', (code: number) => {
+						clearTimeout(timeout);
+						registration.dispose();
+
+						let output = '';
+						if (stdout) {
+							output += stdout;
+						}
+						if (stderr) {
+							output += (output ? '\n[STDERR]\n' : '') + stderr;
+						}
+
+						if (code !== 0) {
+							resolve(`Code de sortie: ${code}\n${output.trim()}`);
+						} else {
+							resolve(output.trim() || `(Commande exécutée avec succès sans sortie texte)`);
+						}
+					});
+
+					child.on('error', (err: Error) => {
+						clearTimeout(timeout);
+						registration.dispose();
+						reject(err);
+					});
+				});
 			}
 
 			default:

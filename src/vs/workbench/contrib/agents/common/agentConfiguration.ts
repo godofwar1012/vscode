@@ -34,6 +34,18 @@ export const DEFAULT_DEEPSEEK_MODELS: readonly IModelDefinition[] = [
 
 export const DEFAULT_BEDROCK_MODELS: readonly IModelDefinition[] = [
 	{
+		id: 'amazon.nova-pro-v1:0',
+		name: 'Amazon Nova Pro (Ultra-économique & Puissant)',
+		providerId: 'bedrock',
+		maxContextTokens: 300000,
+		maxOutputTokens: 5000,
+		supportsStreaming: true,
+		supportsTools: true,
+		supportsReasoning: false,
+		inputPricePerMillion: 0.80,
+		outputPricePerMillion: 3.20
+	},
+	{
 		id: 'anthropic.claude-3-5-sonnet-20241022-v2:0',
 		name: 'Claude 3.5 Sonnet (Bedrock)',
 		providerId: 'bedrock',
@@ -46,16 +58,28 @@ export const DEFAULT_BEDROCK_MODELS: readonly IModelDefinition[] = [
 		outputPricePerMillion: 15.00
 	},
 	{
-		id: 'amazon.nova-pro-v1:0',
-		name: 'Amazon Nova Pro',
+		id: 'amazon.nova-lite-v1:0',
+		name: 'Amazon Nova Lite (Vitesse & Coût minimal)',
 		providerId: 'bedrock',
 		maxContextTokens: 300000,
 		maxOutputTokens: 5000,
 		supportsStreaming: true,
 		supportsTools: true,
 		supportsReasoning: false,
-		inputPricePerMillion: 0.80,
-		outputPricePerMillion: 3.20
+		inputPricePerMillion: 0.06,
+		outputPricePerMillion: 0.24
+	},
+	{
+		id: 'deepseek.r1-v1:0',
+		name: 'DeepSeek R1 (Bedrock)',
+		providerId: 'bedrock',
+		maxContextTokens: 64000,
+		maxOutputTokens: 8192,
+		supportsStreaming: true,
+		supportsTools: true,
+		supportsReasoning: true,
+		inputPricePerMillion: 1.35,
+		outputPricePerMillion: 5.40
 	}
 ];
 
