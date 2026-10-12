@@ -19,6 +19,7 @@ import { ModelProviderRegistry } from '../providers/providerRegistry.js';
 import { AgentLoop } from '../runtime/agentLoop.js';
 import { buildAgentSystemPrompt } from '../runtime/agentPromptBuilder.js';
 import { MultiAgentSwarmCoordinator } from '../runtime/multiAgentCoordinator.js';
+import { ProjectContextEngine } from '../runtime/projectContextEngine.js';
 import { RealToolExecutor } from '../runtime/realToolExecutor.js';
 import { AgentEditorInput } from './agentEditorInput.js';
 import { IAgentInstance } from './agentState.js';
@@ -37,6 +38,7 @@ export class AgentEditorPane extends EditorPane {
 	private readonly _agentManager: ParallelAgentManager = ParallelAgentManager.getInstance();
 	private readonly _workspaceService: IWorkspaceContextService;
 	private readonly _toolExecutor: RealToolExecutor;
+	private readonly _projectContextEngine: ProjectContextEngine;
 
 	constructor(
 		group: IEditorGroup,
@@ -52,6 +54,7 @@ export class AgentEditorPane extends EditorPane {
 			fileService,
 			workspaceService
 		});
+		this._projectContextEngine = new ProjectContextEngine(fileService, workspaceService);
 	}
 
 	protected createEditor(parent: HTMLElement): void {
@@ -157,12 +160,20 @@ export class AgentEditorPane extends EditorPane {
 
 		this._inputElement.value = '';
 
-		// Injection du Prompt Système au début de la session s'il n'est pas déjà présent
+		this._cts = new CancellationTokenSource();
+
+		// Injection du Prompt Système enrichi au début de la session s'il n'est pas déjà présent
 		if (!this._currentAgent.messages.some(m => m.role === 'system')) {
 			const rootFolder = this._workspaceService.getWorkspace().folders[0];
 			const rootPath = rootFolder ? rootFolder.uri.fsPath : undefined;
+
+			// Scanner l'architecture et les règles du projet
+			const topology = await this._projectContextEngine.buildProjectOverview(this._cts.token);
+			const topologyPrompt = this._projectContextEngine.formatContextPrompt(topology);
+
 			const systemPrompt = buildAgentSystemPrompt({
 				workspaceRoot: rootPath,
+				projectTopology: topologyPrompt,
 				mode: this._currentAgent.mode
 			});
 			this._currentAgent.messages.unshift({
@@ -177,8 +188,6 @@ export class AgentEditorPane extends EditorPane {
 		});
 		this._currentAgent.status = 'running';
 		this._renderAgentContent();
-
-		this._cts = new CancellationTokenSource();
 
 		const registry = ModelProviderRegistry.getInstance();
 		const provider = registry.getProvider('gemini') || (await registry.getProviderForModel(this._currentAgent.modelId)) || registry.getAllProviders()[0];

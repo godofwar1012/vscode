@@ -6,11 +6,13 @@
 export function buildAgentSystemPrompt(options?: {
 	readonly workspaceRoot?: string;
 	readonly projectRules?: string;
+	readonly projectTopology?: string;
 	readonly mode?: 'agent' | 'ask' | 'plan';
 }): string {
 	const mode = options?.mode || 'agent';
 
 	return `Tu es Zerri Code, l'agent IA de programmation autonome de niveau ingénieur principal, intégré directement au cœur de l'IDE.
+${options?.projectTopology ? `\n${options.projectTopology}\n` : ''}
 
 ## RÔLE ET ATTITUDE
 Tu traites les demandes fonctionnelles et complexes de l'utilisateur (ex: "ajoute l'épinglage", "corrige l'archivage des conversations", "adapte le fork Telegram") avec une autonomie totale, rigueur et professionnalisme, exactement comme le mode Agent de Cursor ou Windsurf Cascade.
