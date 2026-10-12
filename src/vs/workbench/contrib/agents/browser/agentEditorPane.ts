@@ -89,29 +89,40 @@ export class AgentEditorPane extends EditorPane {
 		this._bodyElement.style.flexDirection = 'column';
 		this._bodyElement.style.gap = '8px';
 
-		// 3. Footer (Sélecteur de mode, zone de saisie, validation)
+		// 3. Footer Flottant en Verre Liquide (Frosted Glass style iOS / Telegram Pro)
 		const footer = DOM.append(this._container, DOM.$('.zerri-agent-footer'));
+		footer.style.position = 'relative';
 		footer.style.display = 'flex';
 		footer.style.flexDirection = 'column';
 		footer.style.gap = '8px';
+		footer.style.padding = '12px 14px';
+		footer.style.borderRadius = '16px';
+		footer.style.background = 'rgba(25, 27, 34, 0.75)';
+		footer.style.backdropFilter = 'blur(20px) saturate(180%)';
+		(footer.style as any).webkitBackdropFilter = 'blur(20px) saturate(180%)';
+		footer.style.border = '1px solid rgba(255, 255, 255, 0.12)';
+		footer.style.boxShadow = '0 12px 36px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.12)';
 
 		const controlsRow = DOM.append(footer, DOM.$('.zerri-agent-mode-row'));
 		controlsRow.style.display = 'flex';
-		controlsRow.style.gap = '8px';
+		controlsRow.style.gap = '6px';
 		controlsRow.style.alignItems = 'center';
 		controlsRow.innerHTML = `
-			<button class="zerri-btn-mode active" data-mode="agent" style="padding:4px 8px; border-radius:3px; background:var(--vscode-button-background); color:var(--vscode-button-foreground); border:none; cursor:pointer;">Mode Agent</button>
-			<button class="zerri-btn-mode" data-mode="ask" style="padding:4px 8px; border-radius:3px; background:var(--vscode-button-secondaryBackground); color:var(--vscode-button-secondaryForeground); border:none; cursor:pointer;">Demander</button>
-			<button class="zerri-btn-mode" data-mode="plan" style="padding:4px 8px; border-radius:3px; background:var(--vscode-button-secondaryBackground); color:var(--vscode-button-secondaryForeground); border:none; cursor:pointer;">Plan</button>
-			<button class="zerri-btn-spec" style="padding:4px 8px; border-radius:3px; background:var(--vscode-badge-background); color:var(--vscode-badge-foreground); border:none; cursor:pointer; margin-left:auto;">📋 Cahier des Charges & Options</button>
+			<button class="zerri-btn-mode active" data-mode="agent" style="padding:4px 10px; border-radius:20px; background:var(--vscode-button-background); color:var(--vscode-button-foreground); border:none; cursor:pointer; font-size:11px; font-weight:500;">Agent</button>
+			<button class="zerri-btn-mode" data-mode="ask" style="padding:4px 10px; border-radius:20px; background:rgba(255,255,255,0.06); color:var(--vscode-editor-foreground); border:1px solid rgba(255,255,255,0.08); cursor:pointer; font-size:11px; font-weight:500;">Demander</button>
+			<button class="zerri-btn-mode" data-mode="plan" style="padding:4px 10px; border-radius:20px; background:rgba(255,255,255,0.06); color:var(--vscode-editor-foreground); border:1px solid rgba(255,255,255,0.08); cursor:pointer; font-size:11px; font-weight:500;">Plan</button>
+			<button class="zerri-btn-spec" style="padding:4px 12px; border-radius:20px; background:rgba(255,255,255,0.08); color:var(--vscode-editor-foreground); border:1px solid rgba(255,255,255,0.12); cursor:pointer; margin-left:auto; display:flex; align-items:center; gap:6px; font-size:11px; font-weight:500; transition:all 0.15s ease;">
+				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+				<span>Cahier des Charges & Options</span>
+			</button>
 		`;
 
 		const buttons = controlsRow.querySelectorAll<HTMLButtonElement>('.zerri-btn-mode');
 		buttons.forEach(btn => {
 			btn.addEventListener('click', () => {
 				buttons.forEach(b => {
-					b.style.background = 'var(--vscode-button-secondaryBackground)';
-					b.style.color = 'var(--vscode-button-secondaryForeground)';
+					b.style.background = 'rgba(255,255,255,0.06)';
+					b.style.color = 'var(--vscode-editor-foreground)';
 				});
 				btn.style.background = 'var(--vscode-button-background)';
 				btn.style.color = 'var(--vscode-button-foreground)';
@@ -128,29 +139,58 @@ export class AgentEditorPane extends EditorPane {
 
 		const inputContainer = DOM.append(footer, DOM.$('.zerri-input-container'));
 		inputContainer.style.display = 'flex';
-		inputContainer.style.gap = '8px';
-		inputContainer.style.alignItems = 'flex-end';
+		inputContainer.style.flexDirection = 'column';
+		inputContainer.style.gap = '6px';
+		inputContainer.style.width = '100%';
 
 		this._inputElement = DOM.append(inputContainer, DOM.$('textarea.zerri-agent-input')) as HTMLTextAreaElement;
-		this._inputElement.placeholder = 'Demandez à Zerri : écrivez une consigne ou posez une question (Ctrl+Entrée pour envoyer)...';
-		this._inputElement.style.flex = '1';
-		this._inputElement.style.minHeight = '70px';
-		this._inputElement.style.padding = '8px';
+		this._inputElement.placeholder = 'Demandez à Zerri : décrivez votre besoin ou collez une erreur... (Ctrl+Entrée)';
+		this._inputElement.style.width = '100%';
+		this._inputElement.style.minHeight = '56px';
+		this._inputElement.style.maxHeight = '180px';
+		this._inputElement.style.padding = '4px 0';
 		this._inputElement.style.boxSizing = 'border-box';
-		this._inputElement.style.borderRadius = '4px';
-		this._inputElement.style.background = 'var(--vscode-input-background)';
-		this._inputElement.style.color = 'var(--vscode-input-foreground)';
-		this._inputElement.style.border = '1px solid var(--vscode-input-border)';
+		this._inputElement.style.background = 'transparent';
+		this._inputElement.style.color = 'var(--vscode-editor-foreground)';
+		this._inputElement.style.border = 'none';
+		this._inputElement.style.outline = 'none';
+		this._inputElement.style.resize = 'none';
+		this._inputElement.style.fontSize = '13px';
+		this._inputElement.style.lineHeight = '1.5';
+		this._inputElement.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
-		this._sendButton = DOM.append(inputContainer, DOM.$('button.zerri-send-btn')) as HTMLButtonElement;
-		this._sendButton.innerText = 'Envoyer';
-		this._sendButton.style.padding = '8px 16px';
-		this._sendButton.style.height = '40px';
-		this._sendButton.style.borderRadius = '4px';
+		const actionRow = DOM.append(inputContainer, DOM.$('.zerri-action-row'));
+		actionRow.style.display = 'flex';
+		actionRow.style.justifyContent = 'space-between';
+		actionRow.style.alignItems = 'center';
+		actionRow.style.paddingTop = '4px';
+
+		const statusChip = DOM.append(actionRow, DOM.$('.zerri-status-chip'));
+		statusChip.style.display = 'flex';
+		statusChip.style.alignItems = 'center';
+		statusChip.style.gap = '6px';
+		statusChip.style.fontSize = '11px';
+		statusChip.style.opacity = '0.75';
+		statusChip.innerHTML = `
+			<span style="width:6px; height:6px; border-radius:50%; background:#4ec9b0; box-shadow:0 0 6px #4ec9b0;"></span>
+			<span>Noyau Rust & Bedrock Nova Pro</span>
+		`;
+
+		this._sendButton = DOM.append(actionRow, DOM.$('button.zerri-send-btn')) as HTMLButtonElement;
+		this._sendButton.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>`;
+		this._sendButton.title = 'Envoyer (Ctrl+Entrée)';
+		this._sendButton.style.width = '34px';
+		this._sendButton.style.height = '34px';
+		this._sendButton.style.borderRadius = '10px';
 		this._sendButton.style.background = 'var(--vscode-button-background)';
 		this._sendButton.style.color = 'var(--vscode-button-foreground)';
 		this._sendButton.style.border = 'none';
 		this._sendButton.style.cursor = 'pointer';
+		this._sendButton.style.display = 'flex';
+		this._sendButton.style.alignItems = 'center';
+		this._sendButton.style.justifyContent = 'center';
+		this._sendButton.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.2)';
+		this._sendButton.style.transition = 'transform 0.1s ease';
 
 		this._sendButton.addEventListener('click', () => this._handleUserSubmit());
 		this._inputElement.addEventListener('keydown', (e) => {
@@ -338,7 +378,10 @@ export class AgentEditorPane extends EditorPane {
 				<span>Tokens: ${this._currentAgent.totalTokens}</span>
 				<span>Coût: ${costFormatted}</span>
 				<span>Étape: ${this._currentAgent.stepCount}</span>
-				<button id="zerri-btn-stop" style="background:var(--vscode-errorForeground); color:#fff; border:none; border-radius:3px; padding:2px 6px; cursor:pointer;">Arrêter</button>
+				<button id="zerri-btn-stop" style="background:var(--vscode-errorForeground); color:#fff; border:none; border-radius:4px; padding:3px 8px; cursor:pointer; display:flex; align-items:center; gap:4px; font-size:11px;">
+					<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+					<span>Arrêter</span>
+				</button>
 			</div>
 		`;
 
@@ -360,7 +403,7 @@ export class AgentEditorPane extends EditorPane {
 			emptyMsg.style.textAlign = 'center';
 			emptyMsg.style.marginTop = '40px';
 			emptyMsg.style.opacity = '0.6';
-			emptyMsg.innerText = 'Aucune action en cours. Entrez une consigne pour démarrer l\'agent.';
+			emptyMsg.innerText = 'Prêt. Décrivez votre besoin ou collez une erreur pour lancer l\'agent.';
 			return;
 		}
 
@@ -395,9 +438,12 @@ export class AgentEditorPane extends EditorPane {
 
 			const statusColor = card.status === 'completed' ? 'green' : card.status === 'running' ? 'orange' : card.status === 'failed' ? 'red' : 'gray';
 			cardEl.innerHTML = `
-				<div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-					<strong>🔧 Outil : ${card.toolName}</strong>
-					<span style="color:${statusColor}; font-weight:bold;">${card.status}</span>
+				<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+					<div style="display:flex; align-items:center; gap:6px;">
+						<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+						<strong>${card.toolName}</strong>
+					</div>
+					<span style="color:${statusColor}; font-weight:600; font-size:11px;">${card.status}</span>
 				</div>
 				<pre style="margin:0; background:rgba(0,0,0,0.1); padding:4px; border-radius:3px; overflow-x:auto;">${JSON.stringify(card.arguments, null, 2)}</pre>
 			`;
@@ -418,7 +464,7 @@ export class AgentEditorPane extends EditorPane {
 			teamHeader.style.gap = '8px';
 			teamHeader.style.marginBottom = '8px';
 			teamHeader.innerHTML = `
-				<span style="font-size:14px;">👥</span>
+				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
 				<strong style="font-size:12px; text-transform:uppercase; letter-spacing:0.5px;">Échanges Vivants Entre Agents (Swarm)</strong>
 				<span style="font-size:11px; opacity:0.7; margin-left:auto;">${this._currentAgent.discussions.length} messages</span>
 			`;
@@ -439,9 +485,9 @@ export class AgentEditorPane extends EditorPane {
 				msgEl.innerHTML = `
 					<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
 						<div style="display:flex; align-items:center; gap:6px;">
-							<span style="font-weight:bold; color:${roleBadgeColor};">${disc.from}</span>
-							<span style="opacity:0.6;">➔</span>
-							<span style="font-weight:bold;">${disc.to}</span>
+							<span style="font-weight:600; color:${roleBadgeColor};">${disc.from}</span>
+							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.5;"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+							<span style="font-weight:600;">${disc.to}</span>
 						</div>
 						<span style="font-size:10px; opacity:0.6;">${new Date(disc.timestamp).toLocaleTimeString()}</span>
 					</div>
@@ -484,8 +530,10 @@ export class AgentEditorPane extends EditorPane {
 
 		modal.innerHTML = `
 			<div style="padding:40px; text-align:center;">
-				<div style="font-size:24px; margin-bottom:12px;">🧠</div>
-				<h3 style="margin:0 0 8px 0;">Gemini Orchestrator génère le Cahier des Charges d'Élite...</h3>
+				<div style="margin-bottom:12px; display:flex; justify-content:center;">
+					<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#4ec9b0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+				</div>
+				<h3 style="margin:0 0 8px 0; font-size:15px; font-weight:600;">Gemini Orchestrator génère le Cahier des Charges d'Élite...</h3>
 				<p style="opacity:0.8; font-size:12px; margin:0;">Analyse de l'architecture, échafaudage de fichiers, disposition des composants et options d'ingénierie logicielle...</p>
 			</div>
 		`;
@@ -549,7 +597,8 @@ export class AgentEditorPane extends EditorPane {
 		header.innerHTML = `
 			<div>
 				<div style="display:flex; align-items:center; gap:8px;">
-					<h2 style="margin:0; font-size:16px;">📋 ${spec.title}</h2>
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+					<h2 style="margin:0; font-size:15px; font-weight:600;">${spec.title}</h2>
 					<span style="font-size:11px; padding:2px 8px; border-radius:12px; background:var(--vscode-badge-background); color:var(--vscode-badge-foreground);">Gemini Orchestrator</span>
 				</div>
 				<p style="margin:4px 0 0 0; font-size:12px; opacity:0.8;">${spec.summary}</p>
@@ -571,7 +620,10 @@ export class AgentEditorPane extends EditorPane {
 		// Section 1: Échafaudage de fichiers
 		const scaffoldSec = DOM.append(body, DOM.$('.zerri-spec-section'));
 		scaffoldSec.innerHTML = `
-			<h4 style="margin:0 0 8px 0; font-size:13px; text-transform:uppercase; letter-spacing:0.5px; opacity:0.9;">📁 Échafaudage de Fichiers Cibles</h4>
+			<div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+				<h4 style="margin:0; font-size:13px; text-transform:uppercase; letter-spacing:0.5px; opacity:0.9;">Échafaudage de Fichiers Cibles</h4>
+			</div>
 			<div style="display:flex; flex-wrap:wrap; gap:6px;">
 				${spec.scaffoldingFiles.map(f => `<span style="font-size:11px; font-family:monospace; padding:3px 8px; border-radius:4px; background:var(--vscode-textCodeBlock-background, rgba(0,0,0,0.2)); border:1px solid var(--vscode-widget-border);">${f}</span>`).join('')}
 			</div>
@@ -580,8 +632,11 @@ export class AgentEditorPane extends EditorPane {
 		// Section 2: Options cochables avec description du flux et transitions au clic
 		const optionsSec = DOM.append(body, DOM.$('.zerri-spec-section'));
 		optionsSec.innerHTML = `
-			<h4 style="margin:0 0 8px 0; font-size:13px; text-transform:uppercase; letter-spacing:0.5px; opacity:0.9;">☑️ Options d'Architecture, UI & Comportement au Clic</h4>
-			<p style="margin:0 0 12px 0; font-size:12px; opacity:0.75;">Sélectionnez ou désélectionnez les options souhaitées. Pour chaque option, le comportement exact au clic et à l'affichage est spécifié :</p>
+			<div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+				<h4 style="margin:0; font-size:13px; text-transform:uppercase; letter-spacing:0.5px; opacity:0.9;">Options d'Architecture, UI & Comportement au Clic</h4>
+			</div>
+			<p style="margin:0 0 12px 0; font-size:12px; opacity:0.75;">Sélectionnez ou désélectionnez les options souhaitées :</p>
 			<div class="zerri-options-list" style="display:flex; flex-direction:column; gap:10px;">
 				${spec.options.map(opt => `
 					<label style="display:flex; gap:10px; align-items:flex-start; padding:10px; border-radius:6px; background:var(--vscode-editorWidget-background); border:1px solid var(--vscode-widget-border); cursor:pointer;">
@@ -593,7 +648,7 @@ export class AgentEditorPane extends EditorPane {
 							</div>
 							<div style="font-size:12px; margin-top:2px; opacity:0.85;">${opt.description}</div>
 							<div style="font-size:11px; margin-top:6px; padding:4px 8px; border-radius:4px; background:rgba(0,120,212,0.1); border-left:3px solid var(--vscode-button-background); color:var(--vscode-editor-foreground);">
-								<strong>🎯 Au clic utilisateur :</strong> ${opt.clickOutcome}
+								<strong style="color:var(--vscode-terminal-ansiCyan, #4ec9b0);">Flux au clic :</strong> ${opt.clickOutcome}
 							</div>
 						</div>
 					</label>
@@ -605,7 +660,10 @@ export class AgentEditorPane extends EditorPane {
 		if (spec.questions.length > 0) {
 			const questionsSec = DOM.append(body, DOM.$('.zerri-spec-section'));
 			questionsSec.innerHTML = `
-				<h4 style="margin:0 0 8px 0; font-size:13px; text-transform:uppercase; letter-spacing:0.5px; opacity:0.9;">❓ Questions de Précision de Gemini</h4>
+				<div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+					<h4 style="margin:0; font-size:13px; text-transform:uppercase; letter-spacing:0.5px; opacity:0.9;">Questions de Précision de Gemini</h4>
+				</div>
 				<p style="margin:0 0 12px 0; font-size:12px; opacity:0.75;">Gemini a formulé ces questions pour aligner l'équipe à vos préférences exactes :</p>
 				<div class="zerri-questions-list" style="display:flex; flex-direction:column; gap:10px;">
 					${spec.questions.map(q => `
@@ -622,14 +680,20 @@ export class AgentEditorPane extends EditorPane {
 		// Section 4: Cahier d'Innovations & Gains Techniques
 		const roadmapSec = DOM.append(body, DOM.$('.zerri-spec-section'));
 		roadmapSec.innerHTML = `
-			<h4 style="margin:0 0 8px 0; font-size:13px; text-transform:uppercase; letter-spacing:0.5px; opacity:0.9;">🚀 Cahier d'Idées & Innovations (Gains en Vitesse & Sécurité)</h4>
+			<div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></svg>
+				<h4 style="margin:0; font-size:13px; text-transform:uppercase; letter-spacing:0.5px; opacity:0.9;">Cahier d'Idées & Innovations (Gains en Vitesse & Sécurité)</h4>
+			</div>
 			<div style="padding:12px; border-radius:6px; background:var(--vscode-editorWidget-background); border:1px solid var(--vscode-widget-border); font-size:12px; line-height:1.6; white-space:pre-wrap;">${spec.innovationRoadmap}</div>
 		`;
 
 		// Section 5: Exigences & Préférences supplémentaires libres
 		const extraSec = DOM.append(body, DOM.$('.zerri-spec-section'));
 		extraSec.innerHTML = `
-			<h4 style="margin:0 0 8px 0; font-size:13px; text-transform:uppercase; letter-spacing:0.5px; opacity:0.9;">✍️ Préférences ou Instructions Supplémentaires</h4>
+			<div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+				<h4 style="margin:0; font-size:13px; text-transform:uppercase; letter-spacing:0.5px; opacity:0.9;">Préférences ou Instructions Supplémentaires</h4>
+			</div>
 			<textarea class="zerri-extra-instructions" placeholder="Ajoutez vos précisions particulières, contraintes ou remarques pour l'équipe..." style="width:100%; min-height:60px; box-sizing:border-box; padding:8px; border-radius:4px; background:var(--vscode-input-background); color:var(--vscode-input-foreground); border:1px solid var(--vscode-input-border);"></textarea>
 		`;
 
@@ -641,8 +705,11 @@ export class AgentEditorPane extends EditorPane {
 		modalFooter.style.justifyContent = 'flex-end';
 		modalFooter.style.gap = '10px';
 		modalFooter.innerHTML = `
-			<button class="zerri-btn-cancel" style="padding:8px 16px; border-radius:4px; background:var(--vscode-button-secondaryBackground); color:var(--vscode-button-secondaryForeground); border:none; cursor:pointer;">Annuler</button>
-			<button class="zerri-btn-submit-swarm" style="padding:8px 18px; border-radius:4px; background:var(--vscode-button-background); color:var(--vscode-button-foreground); border:none; cursor:pointer; font-weight:bold;">🚀 Valider & Lancer l'Équipe d'Ingénieurs</button>
+			<button class="zerri-btn-cancel" style="padding:8px 16px; border-radius:6px; background:var(--vscode-button-secondaryBackground); color:var(--vscode-button-secondaryForeground); border:none; cursor:pointer;">Annuler</button>
+			<button class="zerri-btn-submit-swarm" style="padding:8px 18px; border-radius:6px; background:var(--vscode-button-background); color:var(--vscode-button-foreground); border:none; cursor:pointer; font-weight:600; display:flex; align-items:center; gap:6px;">
+				<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+				<span>Valider & Lancer l'Équipe</span>
+			</button>
 		`;
 
 		modalFooter.querySelector('.zerri-btn-cancel')?.addEventListener('click', () => overlay.remove());

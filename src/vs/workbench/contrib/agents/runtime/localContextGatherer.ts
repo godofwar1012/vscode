@@ -7,6 +7,7 @@ import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
+import { NativeCoreBridge } from './nativeCoreBridge.js';
 
 export interface IGatheredContext {
 	readonly isNewFeatureCreation: boolean;
@@ -52,14 +53,40 @@ export class LocalContextGatherer {
 				}
 			}
 
-			// Recherche de correspondances et stubs
+			// Connexion au Noyau Natif Rust (zerri-core)
+			const nativeBridge = NativeCoreBridge.getInstance();
+
+			// Si une erreur multi-lignes ou une trace de compilation est présente dans la demande
+			if (/error|exception|cannot find|undefined|nullpointer|failed|syntax|type/i.test(userPrompt)) {
+				const rootCause = await nativeBridge.findRootCauseFiles(userPrompt);
+				for (const suspiciousFile of rootCause.suspiciousFiles) {
+					relevantSnippets.push({
+						filePath: suspiciousFile,
+						line: 1,
+						snippet: `[NOYAU NATIF RUST - CAUSE RACINE DÉTECTÉE] Ce fichier externe est directement lié aux symboles ou dépendances en erreur : ${suspiciousFile}`,
+						reason: 'interface_type'
+					});
+				}
+			}
+
+			// Recherche native ultra-rapide des symboles et stubs
 			for (const kw of keywords) {
 				if (token.isCancellationRequested) {
 					break;
 				}
-				// Simulation de détection locale sur les symboles
-				if (/archive|archiv/i.test(kw)) {
-					isHalfImplemented = true;
+
+				const hits = await nativeBridge.searchCodebase(kw, 3);
+				for (const hit of hits) {
+					const isStub = /todo|fixme|unimplemented|stub/i.test(hit.snippet.content);
+					if (isStub) {
+						isHalfImplemented = true;
+					}
+					relevantSnippets.push({
+						filePath: hit.snippet.filePath,
+						line: hit.snippet.startLine,
+						snippet: hit.snippet.content.slice(0, 300),
+						reason: isStub ? 'todo_stub' : 'direct_match'
+					});
 				}
 			}
 		} catch {
