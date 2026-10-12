@@ -114,6 +114,45 @@ export class RealToolExecutor {
 				return items.join('\n');
 			}
 
+			case 'search_in_files': {
+				const query = String(args.query || '').trim();
+				if (!query) {
+					throw new Error('Paramètre `query` requis pour `search_in_files`.');
+				}
+				const maxResults = typeof args.maxResults === 'number' ? args.maxResults : 20;
+
+				return new Promise<string>((resolve) => {
+					const cwd = this._getWorkspaceRootPath();
+					const isWindows = process.platform === 'win32';
+					const shell = isWindows ? 'powershell.exe' : '/bin/bash';
+					// Recherche récursive avec Select-String sous PowerShell ou grep sous Unix
+					const script = isWindows
+						? `Get-ChildItem -Recurse -File -Exclude node_modules,target,dist,.git | Select-String -Pattern "${query.replace(/"/g, '`"')}" | Select-Object -First ${maxResults} | ForEach-Object { "$($_.Path):$($_.LineNumber): $($_.Line.Trim())" }`
+						: `grep -rn --exclude-dir={node_modules,target,dist,.git} "${query}" . | head -n ${maxResults}`;
+
+					const shellArgs = isWindows ? ['-NoProfile', '-NonInteractive', '-Command', script] : ['-c', script];
+					const child = cp.spawn(shell, shellArgs, { cwd, env: { ...process.env } });
+
+					let stdout = '';
+					let stderr = '';
+					child.stdout.on('data', (d: Buffer) => { stdout += d.toString('utf8'); });
+					child.stderr.on('data', (d: Buffer) => { stderr += d.toString('utf8'); });
+
+					child.on('close', () => {
+						const res = stdout.trim();
+						if (!res) {
+							resolve(`Aucun résultat trouvé pour "${query}".`);
+						} else {
+							resolve(res);
+						}
+					});
+
+					child.on('error', (err: Error) => {
+						resolve(`Erreur de recherche : ${err.message}`);
+					});
+				});
+			}
+
 			case 'run_command': {
 				const cmd = String(args.command || '').trim();
 				if (!cmd) {

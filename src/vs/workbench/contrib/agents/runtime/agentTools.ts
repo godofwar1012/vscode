@@ -48,7 +48,7 @@ export const STANDARD_AGENT_TOOLS: readonly IToolDefinition[] = [
 		type: 'function',
 		function: {
 			name: 'edit_file',
-			description: 'Remplace une portion ciblée d\'un fichier existant.',
+			description: 'Remplace une portion ciblée d\'un fichier existant avec précision chirurgicale.',
 			parameters: {
 				type: 'object',
 				properties: {
@@ -89,8 +89,29 @@ export const STANDARD_AGENT_TOOLS: readonly IToolDefinition[] = [
 	{
 		type: 'function',
 		function: {
+			name: 'search_in_files',
+			description: 'Recherche un mot-clé ou une expression régulière dans tous les fichiers du projet (comme grep / ripgrep). Indispensable pour localiser où une fonctionnalité est définie ou appelée (ex: "archive", "pin", "pinned").',
+			parameters: {
+				type: 'object',
+				properties: {
+					query: {
+						type: 'string',
+						description: 'Terme ou motif regex recherché.'
+					},
+					maxResults: {
+						type: 'number',
+						description: 'Nombre maximal d\'occurrences renvoyées (défaut : 20).'
+					}
+				},
+				required: ['query']
+			}
+		}
+	},
+	{
+		type: 'function',
+		function: {
 			name: 'run_command',
-			description: 'Exécute une commande dans le terminal intégré et capture sa sortie.',
+			description: 'Exécute une commande PowerShell dans l\'espace de travail et capture sa sortie.',
 			parameters: {
 				type: 'object',
 				properties: {
