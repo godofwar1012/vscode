@@ -59,6 +59,67 @@ export const DEFAULT_BEDROCK_MODELS: readonly IModelDefinition[] = [
 	}
 ];
 
+/**
+ * Modèles Gemini (API Gemini Developer). Source : documentation officielle (tarifs en USD / million de tokens).
+ * Les modèles Flash ont un palier gratuit avec limites de débit ; le palier gratuit peut servir à améliorer
+ * les produits Google. gemini-3.8-flash : tarif payant promotionnel valable jusqu'au 31/12/2026
+ * (1,50 $ / 7,50 $ ensuite). gemini-3.1-pro-preview : tarif pour les prompts <= 200k tokens.
+ */
+export const DEFAULT_GEMINI_MODELS: readonly IModelDefinition[] = [
+	{
+		id: 'gemini-3.8-flash',
+		name: 'Gemini 3.8 Flash (palier gratuit)',
+		providerId: 'gemini',
+		maxContextTokens: 1048576,
+		maxOutputTokens: 65536,
+		supportsStreaming: true,
+		supportsTools: true,
+		supportsReasoning: true,
+		inputPricePerMillion: 0.75,
+		outputPricePerMillion: 3.75,
+		freeTier: true
+	},
+	{
+		id: 'gemini-3.5-flash',
+		name: 'Gemini 3.5 Flash (palier gratuit)',
+		providerId: 'gemini',
+		maxContextTokens: 1048576,
+		maxOutputTokens: 65536,
+		supportsStreaming: true,
+		supportsTools: true,
+		supportsReasoning: true,
+		inputPricePerMillion: 1.50,
+		outputPricePerMillion: 9.00,
+		freeTier: true
+	},
+	{
+		id: 'gemini-3.5-flash-lite',
+		name: 'Gemini 3.5 Flash-Lite (palier gratuit)',
+		providerId: 'gemini',
+		maxContextTokens: 1048576,
+		maxOutputTokens: 65536,
+		supportsStreaming: true,
+		supportsTools: true,
+		supportsReasoning: true,
+		inputPricePerMillion: 0.30,
+		outputPricePerMillion: 2.50,
+		freeTier: true
+	},
+	{
+		id: 'gemini-3.1-pro-preview',
+		name: 'Gemini 3.1 Pro Preview (payant)',
+		providerId: 'gemini',
+		maxContextTokens: 1048576,
+		maxOutputTokens: 65536,
+		supportsStreaming: true,
+		supportsTools: true,
+		supportsReasoning: true,
+		inputPricePerMillion: 2.00,
+		outputPricePerMillion: 12.00,
+		freeTier: false
+	}
+];
+
 export function calculateCost(model: IModelDefinition, usage: ITokenUsage): ICostEstimate {
 	const inputCost = (usage.promptTokens / 1_000_000) * model.inputPricePerMillion;
 	const completionCost = (usage.completionTokens / 1_000_000) * model.outputPricePerMillion;

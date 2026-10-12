@@ -13,6 +13,8 @@ import {
 	IModelStreamChunk,
 	IToolDefinition
 } from '../common/agentTypes.js';
+import { EventStreamError, EventStreamParser } from './awsEventStream.js';
+import { signRequest } from './awsSigV4.js';
 
 export interface IBedrockConfig {
 	readonly region: string;
@@ -33,34 +35,18 @@ interface IBedrockMessage {
 	content: IBedrockContentBlock[];
 }
 
-interface IConverseResponse {
-	output?: { message?: { role: string; content: IBedrockContentBlock[] } };
+interface IStreamEvent {
+	contentBlockIndex?: number;
+	start?: { toolUse?: { toolUseId: string; name: string } };
+	delta?: { text?: string; toolUse?: { input?: string }; reasoningContent?: { text?: string } };
 	stopReason?: string;
 	usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number };
 	message?: string;
 }
 
-const encoder = new TextEncoder();
-
-function toHex(buffer: ArrayBuffer): string {
-	return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-async function sha256Hex(data: string): Promise<string> {
-	return toHex(await crypto.subtle.digest('SHA-256', encoder.encode(data)));
-}
-
-async function hmac(key: ArrayBuffer | Uint8Array, data: string): Promise<ArrayBuffer> {
-	const cryptoKey = await crypto.subtle.importKey('raw', key as BufferSource, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-	return crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(data));
-}
-
 /**
- * Amazon Bedrock via l'API Converse, signature AWS SigV4.
- *
- * Limite connue : la réponse est reçue en un seul bloc (endpoint `converse`) puis
- * ré-émise comme flux. Le vrai streaming (`converse-stream`) utilise le format binaire
- * `application/vnd.amazon.eventstream` et reste à implémenter.
+ * Amazon Bedrock via l'API ConverseStream (flux binaire `application/vnd.amazon.eventstream`),
+ * requêtes signées en AWS Signature V4.
  */
 export class BedrockProvider implements IModelProvider {
 	readonly id = 'bedrock';
@@ -95,8 +81,7 @@ export class BedrockProvider implements IModelProvider {
 			return { success: false, error: 'Identifiants AWS manquants (AccessKeyId ou SecretAccessKey).' };
 		}
 		try {
-			const host = `bedrock.${this._region}.amazonaws.com`;
-			const res = await this._signedFetch('GET', host, '/foundation-models', '', undefined);
+			const res = await this._signedFetch('GET', `bedrock.${this._region}.amazonaws.com`, '/foundation-models', undefined);
 			if (!res.ok) {
 				return { success: false, error: await this._describeError(res) };
 			}
@@ -112,16 +97,10 @@ export class BedrockProvider implements IModelProvider {
 			return;
 		}
 
-		const systemBlocks = request.messages
-			.filter(m => m.role === 'system')
-			.map(m => ({ text: m.content }));
-
+		const systemBlocks = request.messages.filter(m => m.role === 'system').map(m => ({ text: m.content }));
 		const body: Record<string, unknown> = {
 			messages: this._toBedrockMessages(request.messages),
-			inferenceConfig: {
-				temperature: request.temperature ?? 0.7,
-				maxTokens: request.maxTokens ?? 4096
-			}
+			inferenceConfig: { temperature: request.temperature ?? 0.7, maxTokens: request.maxTokens ?? 4096 }
 		};
 		if (systemBlocks.length > 0) {
 			body.system = systemBlocks;
@@ -135,63 +114,107 @@ export class BedrockProvider implements IModelProvider {
 
 		try {
 			const host = `bedrock-runtime.${this._region}.amazonaws.com`;
-			const path = `/model/${encodeURIComponent(request.modelId)}/converse`;
-			const res = await this._signedFetch('POST', host, path, '', JSON.stringify(body), abortController.signal);
+			const path = `/model/${encodeURIComponent(request.modelId)}/converse-stream`;
+			const res = await this._signedFetch('POST', host, path, JSON.stringify(body), abortController.signal);
 
 			if (!res.ok) {
 				yield { type: 'error', error: await this._describeError(res, request.modelId) };
 				return;
 			}
-
-			const data = await res.json() as IConverseResponse;
-			let toolIndex = 0;
-			for (const block of data.output?.message?.content ?? []) {
-				if (block.text) {
-					yield { type: 'text', text: block.text };
-				}
-				if (block.toolUse) {
-					yield {
-						type: 'tool_call',
-						toolCall: {
-							index: toolIndex++,
-							id: block.toolUse.toolUseId,
-							name: block.toolUse.name,
-							argumentChunk: JSON.stringify(block.toolUse.input ?? {})
-						}
-					};
-				}
+			if (!res.body) {
+				yield { type: 'error', error: 'Aucun flux de réponse reçu de Bedrock.' };
+				return;
 			}
 
-			if (data.usage) {
-				yield {
-					type: 'usage',
-					usage: {
-						promptTokens: data.usage.inputTokens ?? 0,
-						completionTokens: data.usage.outputTokens ?? 0,
-						totalTokens: data.usage.totalTokens ?? ((data.usage.inputTokens ?? 0) + (data.usage.outputTokens ?? 0))
+			const parser = new EventStreamParser();
+			const decoder = new TextDecoder('utf-8');
+			const reader = res.body.getReader();
+			// Les arguments d'outil arrivent par fragments : on mémorise id et nom par bloc.
+			const toolBlocks = new Map<number, { id: string; name: string; order: number }>();
+			let finishReason = 'stop';
+
+			while (!token.isCancellationRequested) {
+				const { done, value } = await reader.read();
+				if (done) {
+					break;
+				}
+
+				for (const message of parser.feed(value)) {
+					const messageType = message.headers[':message-type'];
+					const eventType = String(message.headers[':event-type'] ?? message.headers[':exception-type'] ?? '');
+					let event: IStreamEvent = {};
+					try {
+						event = JSON.parse(decoder.decode(message.payload)) as IStreamEvent;
+					} catch {
+						// charge utile vide ou non JSON
 					}
-				};
+
+					if (messageType === 'exception' || messageType === 'error') {
+						yield { type: 'error', error: this._describeStreamException(eventType, event.message, request.modelId) };
+						return;
+					}
+
+					switch (eventType) {
+						case 'contentBlockStart': {
+							const tool = event.start?.toolUse;
+							if (tool && event.contentBlockIndex !== undefined) {
+								toolBlocks.set(event.contentBlockIndex, { id: tool.toolUseId, name: tool.name, order: toolBlocks.size });
+								yield { type: 'tool_call', toolCall: { index: toolBlocks.size - 1, id: tool.toolUseId, name: tool.name } };
+							}
+							break;
+						}
+						case 'contentBlockDelta': {
+							if (event.delta?.text) {
+								yield { type: 'text', text: event.delta.text };
+							}
+							if (event.delta?.reasoningContent?.text) {
+								yield { type: 'reasoning', reasoning: event.delta.reasoningContent.text };
+							}
+							const input = event.delta?.toolUse?.input;
+							if (input !== undefined && event.contentBlockIndex !== undefined) {
+								const block = toolBlocks.get(event.contentBlockIndex);
+								if (block) {
+									yield { type: 'tool_call', toolCall: { index: block.order, argumentChunk: input } };
+								}
+							}
+							break;
+						}
+						case 'messageStop':
+							finishReason = event.stopReason === 'tool_use' ? 'tool_calls' : (event.stopReason ?? 'stop');
+							break;
+						case 'metadata':
+							if (event.usage) {
+								yield {
+									type: 'usage',
+									usage: {
+										promptTokens: event.usage.inputTokens ?? 0,
+										completionTokens: event.usage.outputTokens ?? 0,
+										totalTokens: event.usage.totalTokens ?? ((event.usage.inputTokens ?? 0) + (event.usage.outputTokens ?? 0))
+									}
+								};
+							}
+							break;
+					}
+				}
 			}
-			yield { type: 'finish', finishReason: data.stopReason === 'tool_use' ? 'tool_calls' : (data.stopReason ?? 'stop') };
+
+			yield { type: 'finish', finishReason: token.isCancellationRequested ? 'cancelled' : finishReason };
 		} catch (err: unknown) {
 			if (token.isCancellationRequested) {
 				yield { type: 'finish', finishReason: 'cancelled' };
 				return;
 			}
-			yield { type: 'error', error: `Erreur Amazon Bedrock : ${err instanceof Error ? err.message : String(err)}` };
+			const message = err instanceof EventStreamError
+				? `Flux Bedrock corrompu : ${err.message}`
+				: `Erreur Amazon Bedrock : ${err instanceof Error ? err.message : String(err)}`;
+			yield { type: 'error', error: message };
 		} finally {
 			listener.dispose();
 		}
 	}
 
 	private _toToolSpec(tool: IToolDefinition): unknown {
-		return {
-			toolSpec: {
-				name: tool.function.name,
-				description: tool.function.description,
-				inputSchema: { json: tool.function.parameters }
-			}
-		};
+		return { toolSpec: { name: tool.function.name, description: tool.function.description, inputSchema: { json: tool.function.parameters } } };
 	}
 
 	/**
@@ -235,10 +258,22 @@ export class BedrockProvider implements IModelProvider {
 		return result;
 	}
 
+	private _describeStreamException(type: string, detail: string | undefined, modelId: string): string {
+		const suffix = detail ? ` Détail : ${detail}` : '';
+		switch (type) {
+			case 'throttlingException': return `Quota Bedrock dépassé (trop de requêtes). Réessayez plus tard.${suffix}`;
+			case 'validationException': return `Requête refusée par Bedrock (paramètres invalides pour ${modelId}).${suffix}`;
+			case 'modelStreamErrorException': return `Erreur du modèle ${modelId} pendant la génération.${suffix}`;
+			case 'modelTimeoutException': return `Le modèle ${modelId} a dépassé le délai de réponse.${suffix}`;
+			case 'serviceUnavailableException': return `Service Bedrock indisponible dans la région ${this._region}.${suffix}`;
+			default: return `Exception Bedrock (${type}).${suffix}`;
+		}
+	}
+
 	private async _describeError(res: Response, modelId?: string): Promise<string> {
 		let detail = '';
 		try {
-			const data = await res.json() as IConverseResponse;
+			const data = await res.json() as IStreamEvent;
 			detail = data.message ?? '';
 		} catch {
 			// corps non JSON
@@ -255,58 +290,19 @@ export class BedrockProvider implements IModelProvider {
 		return `Erreur Bedrock HTTP ${res.status}${detail ? ` : ${detail}` : ''}`;
 	}
 
-	/** Requête signée AWS Signature Version 4. */
-	private async _signedFetch(method: string, host: string, path: string, query: string, body: string | undefined, signal?: AbortSignal): Promise<Response> {
-		const payload = body ?? '';
-		const now = new Date();
-		const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
-		const dateStamp = amzDate.substring(0, 8);
-		const service = 'bedrock';
-
-		const headers: Record<string, string> = {
-			'host': host,
-			'x-amz-date': amzDate
-		};
-		if (body !== undefined) {
-			headers['content-type'] = 'application/json';
-		}
-		if (this._sessionToken) {
-			headers['x-amz-security-token'] = this._sessionToken;
-		}
-
-		const signedHeaderNames = Object.keys(headers).sort();
-		const canonicalHeaders = signedHeaderNames.map(h => `${h}:${headers[h].trim()}\n`).join('');
-		const signedHeaders = signedHeaderNames.join(';');
-
-		// Hors S3, chaque segment du chemin est encodé une seconde fois dans la requête canonique.
-		const canonicalUri = path.split('/').map(seg => encodeURIComponent(seg)).join('/');
-		const canonicalRequest = [method, canonicalUri, query, canonicalHeaders, signedHeaders, await sha256Hex(payload)].join('\n');
-
-		const scope = `${dateStamp}/${this._region}/${service}/aws4_request`;
-		const stringToSign = ['AWS4-HMAC-SHA256', amzDate, scope, await sha256Hex(canonicalRequest)].join('\n');
-
-		const kDate = await hmac(encoder.encode(`AWS4${this._secretAccessKey}`), dateStamp);
-		const kRegion = await hmac(new Uint8Array(kDate), this._region);
-		const kService = await hmac(new Uint8Array(kRegion), service);
-		const kSigning = await hmac(new Uint8Array(kService), 'aws4_request');
-		const signature = toHex(await hmac(new Uint8Array(kSigning), stringToSign));
-
-		const requestHeaders: Record<string, string> = {
-			'x-amz-date': amzDate,
-			'Authorization': `AWS4-HMAC-SHA256 Credential=${this._accessKeyId}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`
-		};
-		if (body !== undefined) {
-			requestHeaders['Content-Type'] = 'application/json';
-		}
-		if (this._sessionToken) {
-			requestHeaders['x-amz-security-token'] = this._sessionToken;
-		}
-
-		return fetch(`https://${host}${path}${query ? `?${query}` : ''}`, {
+	private async _signedFetch(method: string, host: string, path: string, body: string | undefined, signal?: AbortSignal): Promise<Response> {
+		const signed = await signRequest({
 			method,
-			headers: requestHeaders,
-			body: body !== undefined ? body : undefined,
-			signal
+			host,
+			path,
+			body,
+			headers: body !== undefined ? { 'content-type': 'application/json' } : undefined,
+			region: this._region,
+			service: 'bedrock',
+			accessKeyId: this._accessKeyId!,
+			secretAccessKey: this._secretAccessKey!,
+			sessionToken: this._sessionToken
 		});
+		return fetch(`https://${host}${path}`, { method, headers: signed.headers, body, signal });
 	}
 }

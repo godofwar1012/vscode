@@ -14,6 +14,8 @@ export interface IToolCall {
 		readonly name: string;
 		readonly arguments: string;
 	};
+	/** Signature de raisonnement chiffrée (Gemini 3) : à renvoyer telle quelle avec l'appel. */
+	readonly thoughtSignature?: string;
 }
 
 export interface ILlmMessage {
@@ -65,6 +67,8 @@ export interface IModelDefinition {
 	readonly supportsReasoning: boolean;
 	readonly inputPricePerMillion: number;
 	readonly outputPricePerMillion: number;
+	/** Vrai si le fournisseur propose un palier gratuit pour ce modèle (avec limites de débit). */
+	readonly freeTier?: boolean;
 }
 
 export interface IModelStreamChunk {
@@ -76,6 +80,7 @@ export interface IModelStreamChunk {
 		readonly id?: string;
 		readonly name?: string;
 		readonly argumentChunk?: string;
+		readonly thoughtSignature?: string;
 	};
 	readonly usage?: ITokenUsage;
 	readonly finishReason?: string;

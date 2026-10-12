@@ -99,7 +99,7 @@ export class AgentLoop {
 
 			let assistantText = '';
 			let reasoningText = '';
-			const toolCallsMap = new Map<number, { id: string; name: string; args: string }>();
+			const toolCallsMap = new Map<number, { id: string; name: string; args: string; thoughtSignature?: string }>();
 
 			const stream = this._provider.streamChat({
 				modelId: this._model.id,
@@ -131,6 +131,9 @@ export class AgentLoop {
 					if (chunk.toolCall.argumentChunk) {
 						current.args += chunk.toolCall.argumentChunk;
 					}
+					if (chunk.toolCall.thoughtSignature) {
+						current.thoughtSignature = chunk.toolCall.thoughtSignature;
+					}
 					toolCallsMap.set(idx, current);
 				} else if (chunk.type === 'usage' && chunk.usage) {
 					this._totalUsage = {
@@ -145,7 +148,8 @@ export class AgentLoop {
 			const toolCallsList = Array.from(toolCallsMap.values()).map(tc => ({
 				id: tc.id,
 				type: 'function' as const,
-				function: { name: tc.name, arguments: tc.args }
+				function: { name: tc.name, arguments: tc.args },
+				thoughtSignature: tc.thoughtSignature
 			}));
 
 			messages.push({
