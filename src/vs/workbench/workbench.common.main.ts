@@ -432,6 +432,9 @@ import './contrib/editSessions/browser/editSessions.contribution.js';
 // Remote Coding Agents
 import './contrib/remoteCodingAgents/browser/remoteCodingAgents.contribution.js';
 
+// Zerri Code AI Agents
+import './contrib/agents/browser/agents.contribution.js';
+
 // Code Actions
 import './contrib/codeActions/browser/codeActions.contribution.js';
 
