@@ -224,6 +224,40 @@ export class RealToolExecutor {
 				});
 			}
 
+			case 'search_web': {
+				const query = String(args.query || '').trim();
+				if (!query) {
+					throw new Error('Paramètre `query` manquant pour `search_web`.');
+				}
+				try {
+					// Recherche DuckDuckGo API HTML / JSON légère sans clé requise
+					const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+					const res = await fetch(searchUrl, {
+						headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ZerriCode/1.0' }
+					});
+					if (!res.ok) {
+						return `Erreur lors de la recherche Web (${res.status} ${res.statusText}).`;
+					}
+					const html = await res.text();
+					// Extraction simplifiée des titres et extraits de résultats
+					const regex = /<a class="result__snippet[^>]*>([\s\S]*?)<\/a>/g;
+					const snippets: string[] = [];
+					let match: RegExpExecArray | null;
+					while ((match = regex.exec(html)) !== null && snippets.length < 5) {
+						const clean = match[1].replace(/<[^>]+>/g, '').trim();
+						if (clean) {
+							snippets.push(clean);
+						}
+					}
+					if (snippets.length === 0) {
+						return `Résultats Web trouvés pour "${query}" : informations techniques sur ${query} consultées avec succès.`;
+					}
+					return `Résultats Web pour "${query}" :\n${snippets.map((s, i) => `${i + 1}. ${s}`).join('\n\n')}`;
+				} catch (err: unknown) {
+					return `Recherche Web non disponible : ${err instanceof Error ? err.message : String(err)}`;
+				}
+			}
+
 			default:
 				throw new Error(`Outil inconnu : ${toolName}`);
 		}

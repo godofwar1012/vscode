@@ -8,6 +8,16 @@ import { IActionCard } from '../runtime/agentLoop.js';
 
 export type AgentStatus = 'idle' | 'running' | 'waiting_user' | 'completed' | 'error';
 
+export interface IAgentDiscussionItem {
+	readonly id: string;
+	readonly from: string;
+	readonly to: string;
+	readonly role: string;
+	readonly message: string;
+	readonly timestamp: number;
+	readonly details?: string;
+}
+
 export interface IAgentInstance {
 	readonly id: string;
 	name: string;
@@ -22,5 +32,7 @@ export interface IAgentInstance {
 	lastActivity: number;
 	messages: ILlmMessage[];
 	actionCards: IActionCard[];
+	discussions?: IAgentDiscussionItem[];
 	waitingReason?: string;
 }
+

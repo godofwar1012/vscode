@@ -123,5 +123,22 @@ export const STANDARD_AGENT_TOOLS: readonly IToolDefinition[] = [
 				required: ['command']
 			}
 		}
+	},
+	{
+		type: 'function',
+		function: {
+			name: 'search_web',
+			description: 'Recherche des documentations, bibliothèques ou informations techniques à jour sur le Web (ex: meilleures pratiques Telegram API, WebRTC audio calls, etc.).',
+			parameters: {
+				type: 'object',
+				properties: {
+					query: {
+						type: 'string',
+						description: 'Requête de recherche technique.'
+					}
+				},
+				required: ['query']
+			}
+		}
 	}
 ];
