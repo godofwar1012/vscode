@@ -14,10 +14,11 @@ import { EditorPane } from '../../../browser/parts/editor/editorPane.js';
 import { IEditorOpenContext } from '../../../common/editor.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
-import { DEFAULT_GEMINI_MODELS } from '../common/agentConfiguration.js';
+import { DEFAULT_BEDROCK_MODELS, DEFAULT_GEMINI_MODELS } from '../common/agentConfiguration.js';
 import { ModelProviderRegistry } from '../providers/providerRegistry.js';
 import { AgentLoop } from '../runtime/agentLoop.js';
 import { buildAgentSystemPrompt } from '../runtime/agentPromptBuilder.js';
+import { MultiAgentSwarmCoordinator } from '../runtime/multiAgentCoordinator.js';
 import { RealToolExecutor } from '../runtime/realToolExecutor.js';
 import { AgentEditorInput } from './agentEditorInput.js';
 import { IAgentInstance } from './agentState.js';
@@ -193,15 +194,58 @@ export class AgentEditorPane extends EditorPane {
 			return;
 		}
 
-		const loop = new AgentLoop({
-			agentId: this._currentAgent.id,
-			mode: this._currentAgent.mode,
-			provider,
-			model: modelDef,
-			toolExecutor: (tool, args, tok) => this._toolExecutor.execute(tool, args, tok)
-		});
+		const bedrockProvider = registry.getProvider('bedrock');
 
 		try {
+			// Vérifier si la demande nécessite l'essaim multi-agents (Frontend x2, Backend, Sécurité, Reviewer)
+			if (bedrockProvider && this._currentAgent.mode === 'agent') {
+				const coordinator = new MultiAgentSwarmCoordinator(
+					provider,
+					modelDef,
+					bedrockProvider,
+					DEFAULT_BEDROCK_MODELS,
+					(tool, args, tok) => this._toolExecutor.execute(tool, args, tok)
+				);
+
+				const evaluation = await coordinator.evaluateTask(text, this._cts.token);
+				if (evaluation.needsSwarm && evaluation.plan.length > 0) {
+					const swarmRes = await coordinator.runSwarm(
+						text,
+						evaluation.plan,
+						{
+							onTextChunk: () => {
+								this._renderAgentContent();
+							},
+							onActionCardCreated: (card) => {
+								this._currentAgent?.actionCards.push(card);
+								this._renderAgentContent();
+							},
+							onActionCardUpdated: () => {
+								this._renderAgentContent();
+							}
+						},
+						this._cts.token
+					);
+
+					this._currentAgent.messages.push({
+						role: 'assistant',
+						content: swarmRes.finalSummary
+					});
+					this._currentAgent.status = 'completed';
+					this._renderAgentContent();
+					return;
+				}
+			}
+
+			// Sinon : Résolution directe rapide via Gemini
+			const loop = new AgentLoop({
+				agentId: this._currentAgent.id,
+				mode: this._currentAgent.mode,
+				provider,
+				model: modelDef,
+				toolExecutor: (tool, args, tok) => this._toolExecutor.execute(tool, args, tok)
+			});
+
 			const res = await loop.run(
 				this._currentAgent.messages,
 				{
