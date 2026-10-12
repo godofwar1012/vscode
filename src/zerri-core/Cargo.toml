@@ -1,0 +1,16 @@
+[package]
+name = "zerri-core"
+version = "1.0.0"
+edition = "2021"
+authors = ["Zerri Code Core Team"]
+description = "High-performance native Rust core for Zerri Code: AST indexing, BM25 semantic search, Myers diff, and secure vault"
+
+[dependencies]
+tokio = { version = "1.36", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+regex = "1.10"
+walkdir = "2.4"
+rayon = "1.8"
+notify = "6.1"
+keyring = { version = "2.1", default-features = false, features = ["platform-windows", "platform-macos", "linux-secret-service-rt-tokio-crypto-openssl"] }
