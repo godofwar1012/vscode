@@ -5,11 +5,13 @@
 
 import * as DOM from '../../../../base/browser/dom.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { IStorageService } from '../../../../platform/storage/common/storage.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { EditorPane } from '../../../browser/parts/editor/editorPane.js';
 import { IEditorOpenContext } from '../../../common/editor.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
+import { IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
 import { AgentEditorInput } from './agentEditorInput.js';
 import { IAgentInstance } from './agentState.js';
 import { ParallelAgentManager } from './parallelAgentManager.js';
@@ -22,14 +24,15 @@ export class AgentEditorPane extends EditorPane {
 	private _bodyElement!: HTMLElement;
 	private _inputElement!: HTMLTextAreaElement;
 	private _currentAgent?: IAgentInstance;
+	private readonly _agentManager: ParallelAgentManager = ParallelAgentManager.getInstance();
 
 	constructor(
-		group: any,
+		group: IEditorGroup,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
-		private readonly _agentManager: ParallelAgentManager = ParallelAgentManager.getInstance()
+		@IStorageService storageService: IStorageService
 	) {
-		super(AgentEditorPane.ID, group, telemetryService, themeService, null as any);
+		super(AgentEditorPane.ID, group, telemetryService, themeService, storageService);
 	}
 
 	protected createEditor(parent: HTMLElement): void {

@@ -108,5 +108,7 @@ export class TabCompletionProvider implements InlineCompletionsProvider {
 		}
 	}
 
+	disposeInlineCompletions(): void { }
+
 	dispose(): void { }
 }

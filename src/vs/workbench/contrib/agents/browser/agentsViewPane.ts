@@ -7,13 +7,13 @@ import * as DOM from '../../../../base/browser/dom.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
+import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
-import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
-import { ViewPane } from '../../../browser/parts/views/viewPane.js';
-import { IViewletViewOptions } from '../../../browser/parts/views/viewsViewlet.js';
+import { IViewPaneOptions, ViewPane } from '../../../browser/parts/views/viewPane.js';
+import { IViewDescriptorService } from '../../../common/views.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { AgentEditorInput } from './agentEditorInput.js';
 import { ParallelAgentManager } from './parallelAgentManager.js';
@@ -22,21 +22,22 @@ export class AgentsViewPane extends ViewPane {
 	static readonly ID = 'workbench.views.agentsList';
 
 	private _listContainer!: HTMLElement;
+	private readonly _agentManager: ParallelAgentManager = ParallelAgentManager.getInstance();
 
 	constructor(
-		options: IViewletViewOptions,
+		options: IViewPaneOptions,
 		@IKeybindingService keybindingService: IKeybindingService,
 		@IContextMenuService contextMenuService: IContextMenuService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
+		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 		@IInstantiationService instantiationService: IInstantiationService,
-		@IThemeService themeService: IThemeService,
-		@ITelemetryService telemetryService: ITelemetryService,
 		@IOpenerService openerService: IOpenerService,
-		@IEditorService private readonly _editorService: IEditorService,
-		private readonly _agentManager: ParallelAgentManager = ParallelAgentManager.getInstance()
+		@IThemeService themeService: IThemeService,
+		@IHoverService hoverService: IHoverService,
+		@IEditorService private readonly _editorService: IEditorService
 	) {
-		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, instantiationService, null as any, themeService, telemetryService, null as any, openerService);
+		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 
 		this._register(this._agentManager.onDidChangeAgents(() => {
 			this._renderList();
