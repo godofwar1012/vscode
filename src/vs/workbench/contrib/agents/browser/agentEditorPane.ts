@@ -17,6 +17,7 @@ import { IEditorGroup } from '../../../services/editor/common/editorGroupsServic
 import { DEFAULT_GEMINI_MODELS } from '../common/agentConfiguration.js';
 import { ModelProviderRegistry } from '../providers/providerRegistry.js';
 import { AgentLoop } from '../runtime/agentLoop.js';
+import { buildAgentSystemPrompt } from '../runtime/agentPromptBuilder.js';
 import { RealToolExecutor } from '../runtime/realToolExecutor.js';
 import { AgentEditorInput } from './agentEditorInput.js';
 import { IAgentInstance } from './agentState.js';
@@ -33,6 +34,7 @@ export class AgentEditorPane extends EditorPane {
 	private _currentAgent?: IAgentInstance;
 	private _cts: CancellationTokenSource | null = null;
 	private readonly _agentManager: ParallelAgentManager = ParallelAgentManager.getInstance();
+	private readonly _workspaceService: IWorkspaceContextService;
 	private readonly _toolExecutor: RealToolExecutor;
 
 	constructor(
@@ -44,6 +46,7 @@ export class AgentEditorPane extends EditorPane {
 		@IWorkspaceContextService workspaceService: IWorkspaceContextService
 	) {
 		super(AgentEditorPane.ID, group, telemetryService, themeService, storageService);
+		this._workspaceService = workspaceService;
 		this._toolExecutor = new RealToolExecutor({
 			fileService,
 			workspaceService
@@ -152,6 +155,21 @@ export class AgentEditorPane extends EditorPane {
 		}
 
 		this._inputElement.value = '';
+
+		// Injection du Prompt Système au début de la session s'il n'est pas déjà présent
+		if (!this._currentAgent.messages.some(m => m.role === 'system')) {
+			const rootFolder = this._workspaceService.getWorkspace().folders[0];
+			const rootPath = rootFolder ? rootFolder.uri.fsPath : undefined;
+			const systemPrompt = buildAgentSystemPrompt({
+				workspaceRoot: rootPath,
+				mode: this._currentAgent.mode
+			});
+			this._currentAgent.messages.unshift({
+				role: 'system',
+				content: systemPrompt
+			});
+		}
+
 		this._currentAgent.messages.push({
 			role: 'user',
 			content: text
