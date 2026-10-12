@@ -8,17 +8,23 @@ import { localize2 } from '../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
+import { ISecretStorageService } from '../../../../platform/secrets/common/secrets.js';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
+import { registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { EditorExtensions } from '../../../common/editor.js';
 import { Extensions as ViewExtensions, IViewContainersRegistry, IViewsRegistry, ViewContainerLocation } from '../../../common/views.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { AgentEditorInput } from './agentEditorInput.js';
 import { AgentEditorPane } from './agentEditorPane.js';
+import { AgentKeyService, GEMINI_API_KEY_SECRET } from './agentKeyService.js';
 import { AgentsViewPane } from './agentsViewPane.js';
 import { ParallelAgentManager } from './parallelAgentManager.js';
+import { TabCompletionContribution } from './tabCompletionContribution.js';
 
 // 1. Enregistrement du View Container dans la barre d'activité
 const AGENTS_VIEW_CONTAINER = Registry.as<IViewContainersRegistry>(ViewExtensions.ViewContainersRegistry).registerViewContainer({
@@ -47,7 +53,14 @@ Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane
 	[new SyncDescriptor(AgentEditorInput)]
 );
 
-// 4. Commandes et Raccourcis
+// 4. Enregistrement de la contribution Tab Completion (Inline Completions)
+registerWorkbenchContribution2(
+	TabCompletionContribution.ID,
+	TabCompletionContribution,
+	WorkbenchPhase.AfterRestored
+);
+
+// 5. Commandes et Raccourcis
 registerAction2(class OpenAgentsSidebarAction extends Action2 {
 	constructor() {
 		super({
@@ -83,5 +96,37 @@ registerAction2(class NewAgentTabAction extends Action2 {
 		const newAgent = manager.createAgent(`Agent #${count}`);
 		const input = new AgentEditorInput(newAgent.id, manager);
 		editorService.openEditor(input, { pinned: true });
+	}
+});
+
+registerAction2(class SetGeminiApiKeyAction extends Action2 {
+	constructor() {
+		super({
+			id: 'zerri.setGeminiApiKey',
+			title: localize2('setGeminiApiKey', "Zerri: Configurer la clé d'API Gemini (Gratuit)"),
+			menu: {
+				id: MenuId.CommandPalette
+			}
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const quickInputService = accessor.get(IQuickInputService);
+		const secretStorage = accessor.get(ISecretStorageService);
+		const notificationService = accessor.get(INotificationService);
+
+		const currentKey = (await secretStorage.get(GEMINI_API_KEY_SECRET)) || '';
+		const key = await quickInputService.input({
+			title: 'Clé API Google Gemini',
+			prompt: 'Entrez votre clé API Google Gemini (Obtenez-en une gratuitement sur https://aistudio.google.com/apikey)',
+			value: currentKey,
+			password: true
+		});
+
+		if (key !== undefined) {
+			const keyService = new AgentKeyService(secretStorage);
+			await keyService.setGeminiKey(key);
+			notificationService.info('Clé d\'API Gemini enregistrée avec succès dans Zerri Code.');
+		}
 	}
 });
