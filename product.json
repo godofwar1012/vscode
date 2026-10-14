@@ -42,6 +42,34 @@
 		"resourceUrlTemplate": "https://open-vsx.org/vscode/asset/{publisher}/{name}/{version}/Microsoft.VisualStudio.Code.WebResources/{path}",
 		"controlUrl": ""
 	},
+	"defaultChatAgent": {
+		"extensionId": "zerri.code-ai",
+		"chatExtensionId": "zerri.code-ai-chat",
+		"name": "Zerri AI",
+		"provider": {
+			"default": {
+				"id": "zerri",
+				"name": "Zerri"
+			},
+			"enterprise": {
+				"id": "zerri-enterprise",
+				"name": "Zerri Enterprise"
+			}
+		},
+		"providerScopes": [["read:user"]],
+		"documentationUrl": "https://github.com/godofwar1012/vscode",
+		"termsStatementUrl": "https://github.com/godofwar1012/vscode",
+		"privacyStatementUrl": "https://github.com/godofwar1012/vscode",
+		"completionsAdvancedSetting": "zerri.ai.advanced",
+		"entitlementUrl": "",
+		"tokenEntitlementUrl": "",
+		"upgradePlanUrl": "",
+		"entitlementSignupLimitedUrl": "",
+		"mcpRegistryDataUrl": "",
+		"managedSettingsUrl": "",
+		"chatQuotaExceededContext": "zerri.chat.quotaExceeded",
+		"completionsQuotaExceededContext": "zerri.completions.quotaExceeded"
+	},
 	"agentsTelemetryAppName": "agents",
 	"webviewContentExternalBaseUrlTemplate": "https://{{uuid}}.vscode-cdn.net/insider/ef65ac1ba57f57f2a3961bfe94aa20481caca4c6/out/vs/workbench/contrib/webview/browser/pre/",
 	"builtInExtensions": [
